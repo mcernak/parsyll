@@ -20,6 +20,11 @@ The technical aspects of the sylb detector are written up in this paper:
 }
 ```
 
+To run the decoding, call:
+```
+  bin/sdec example/example_PLP.mat cfg/PLP_filter.mat
+```
+
 [Milos Cernak](http://www.idiap.ch/~mcernak)
 
 June 2015
