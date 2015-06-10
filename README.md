@@ -19,6 +19,7 @@ The technical aspects of the sylb detector are written up in this paper:
   month =        "September"
 }
 ```
+and here is a [pdf](http://publications.idiap.ch/downloads/papers/2015/Hyafil_INTERSPEECH_2015.pdf).
 
 To run the decoding, call:
 ```
