@@ -249,6 +249,7 @@ int main(int argc, char *argv[]) {
 	    fread(&nSamples,4,1,fp);
 	    TTchan = nSamples;
 	    fread(&sampPeriod,4,1,fp);
+	    dt_input = sampPeriod/10000;
 	    fread(&sampSize,2,1,fp);
 	    fread(&parmKind,2,1,fp);
 	    // simple check
