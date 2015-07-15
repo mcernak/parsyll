@@ -22,20 +22,46 @@
 #include <math.h>
 #include <mat.h>
 
+#define FRAME_SHIFT 10 // time step in ms
+
 double absx(double x);
 double rand01();
 int max(int a, int b);
 int min(int a, int b);
 double random_normal();
 
+void Usage(void)
+{
+	fprintf(stderr, "\n");
+	fprintf(stderr, "nsylb - Neuromorphic Syllable Boundary detector.\n");
+	fprintf(stderr, "\n");
+	fprintf(stderr, "  usage:\n");
+	fprintf(stderr, "       nsylb -i input.htk\n");
+	fprintf(stderr, "       nsylb -m -n 10 -i input.mat\n");
+	fprintf(stderr,
+			"  options:                                                                   [  def][ min--max]\n");
+	fprintf(stderr,
+			"    -i file        : file name of htk/matlab input features                  [  N/A]\n");
+	fprintf(stderr,
+			"    -m             : using matlab format of the input file                   [FALSE]\n");
+	fprintf(stderr,
+			"    -n frame_shift : frame shift of the matlab input file                    [   %d][ 5--20]\n", FRAME_SHIFT);
+	fprintf(stderr, "  note:\n");
+	fprintf(stderr,
+			"    htk file should be extracted with cfg/PLP_0.cfg \n");
+	fprintf(stderr, "\n");
+
+	exit(0);
+}
+
 int main(int argc, char *argv[]) {
 
 	// DECLARE VARIABLES
 
 	//convolution variables
-	double *chan, *chch, *Ichannel2D, *IIchannel2D, *I_prefilt, *II_prefilt,
+	double 	*chan, *chch, *Ichannel2D, *IIchannel2D, *I_prefilt, *II_prefilt,
 			II_prefilt_zero, *Dconv, *Dconv_zero;
-	double *Idc, *It, *IIt, fe_chan;
+	double *Idc, *It, *IIt;//, fe_chan;
 	int nchan, TTchan, us_input, iidt, nconv;
 
 	// neuron variables
@@ -52,7 +78,8 @@ int main(int argc, char *argv[]) {
 	double *rr, *rrr, *s, *g, *Vsyn, *tauR, *tauD, *sr, *ss, Isyn, iisyn, *gg;
 
 	// time variables
-	double dt, dt_input, T, Tstart, dtt;
+	double dt_input = FRAME_SHIFT;
+	double dt, T, Tstart, dtt;
 	int TT, TTstart, t, u;
 
 	// post-processing (detect synchrony)
@@ -60,18 +87,36 @@ int main(int argc, char *argv[]) {
 			imax2, *T_synS, nsynS;
 	double rectwidth, dt_sync, *synS;
 
-	char *mfccfile, *filterfile;
+	char *plpfile;
 	FILE *fp;
+	int mat = 0;
 
 	srandom(clock());
 
-	// SET UP PARAMETERS
-
-	//input parameters
-	filterfile = argv[2];
-	//filterfile = mxArrayToString(prhs[1]);
-	fe_chan = 100; // frequency of output (channels)
-	dt_input = 1000 / fe_chan; // corresponding time step (in ms)
+	if (argc < 3)
+		Usage();
+	/* read command */
+	while (--argc) {
+		if (**++argv == '-') {
+			switch (*(*argv + 1)) {
+			case 'i':
+				plpfile = (char *) *++argv;
+				--argc;
+				break;
+			case 'm':
+				mat = 1;
+				break;
+			case 'n':
+				dt_input = atoi(*++argv);
+				--argc;
+				break;
+			default:
+				printf("nsylb: Invalid option '-%c'.\n",
+						*(*argv + 1));
+				exit(0);
+			}
+		}
+	}
 
 	// convolution kernel for non-zero components
 	nconv = 10;
@@ -155,65 +200,75 @@ int main(int argc, char *argv[]) {
 	TTrect = ceil((rectwidth / dt - 1) / 2);
 
 	/// OPEN SPEECH FILE
-	mfccfile = argv[1];
+	//mfccfile = argv[1];
 
-	MATFile *pmat, *spmat;
-	mxArray *pa;
+	if (mat == 1) {
+		// reading matlab input feature file
+		MATFile *pmat, *spmat;
+		mxArray *pa;
 
-	spmat = matOpen(mfccfile, "r");
+		spmat = matOpen(plpfile, "r");
 
-	// Read input matlab file 
-	if (spmat == NULL) {
-		printf("Error opening input matlab file %s, please check\n", mfccfile);
+		// Read input matlab file
+		if (spmat == NULL) {
+			printf("nsylb: error opening input matlab file %s, please check\n", plpfile);
+			exit(0);
+		}
+
+		pa = matGetVariable(spmat, "x");
+		if (pa == NULL) {
+			printf("nsylb: error reading from the input matlab file.\n");
+			exit(0);
+		}
+
+		chan = mxGetPr(pa);
+		TTchan = mxGetNumberOfElements(pa) / nchan;
+		//T = Tstart + Tend + 1000. * TTchan / fe_chan; // total trial time (ms)
+
+		matClose(spmat);
+	} else {
+		float *plpdata;
+		// reading HTK header
+		printf("nsylb: reading HTK header\n");
+	    int nSamples;   // 4 B
+	    int sampPeriod; // 4 B
+	    short sampSize; // 2 B
+	    short parmKind; // 2 B
+	    size_t size, sizer; /*filesize*/
+
+	    fp = fopen(plpfile,"rb");
+	    if (fp == NULL) {
+	    	printf("nsylb: error opening input htk file %s, please check\n", plpfile);
+	    }
+	    fseek(fp, 0, SEEK_END);
+	    size = ftell(fp);
+	    plpdata = (float *) malloc(sizeof(float)*nchan*nSamples); // PLP features
+	    chan = (double *) malloc(sizeof(double)*nchan*nSamples);
+
+	    fseek(fp, 0, SEEK_SET);
+	    fread(&nSamples,4,1,fp);
+	    TTchan = nSamples;
+	    fread(&sampPeriod,4,1,fp);
+	    fread(&sampSize,2,1,fp);
+	    fread(&parmKind,2,1,fp);
+	    // simple check
+	    if (sampSize/4 != nchan) {
+	    	printf("nsylb: error with sample size - expected %d, please check\n", nchan);
+	    	exit(0);
+	    }
+	    if (nSamples*sampSize != size - 12) {
+	    	printf("nsylb: error in file size, please check\n");
+	    	exit(0);
+	    }
+	    fread(plpdata,sampSize,nSamples,fp);
+	    for (i = 0; i < nchan*nSamples; i++)           // copy float do double
+	    	chan[i] = (double) plpdata[i];
+		free(plpdata);
+	    fclose(fp);
 		//exit(0);
 	}
-
-	pa = matGetVariable(spmat, "x");
-	if (pa == NULL) {
-		printf("error: reading from the input matlab file.\n");
-		//exit(0);
-	}
-
-	chan = mxGetPr(pa);
-	TTchan = mxGetNumberOfElements(pa) / nchan;
-	T = Tstart + Tend + 1000. * TTchan / fe_chan; // total trial time (ms)
+	T = Tstart + Tend + dt_input * TTchan; // total trial time (ms)
 	TT = round(T / dt); // number of time steps
-
-	matClose(spmat);
-
-	/*
-	 //// PRE-CORTICAL FILTER
-
-	 pmat = matOpen(filterfile, "r");
-
-
-	 // CONVOLVE INPUT
-	 
-	 Ichannel2D = mxMalloc(nchan* sizeof(double));
-
-
-
-	 //data = (real *) malloc(sizeof(double)*nchan);
-	 //if(!data)
-	 //	error("error: not enough memory.");
-
-	 pa = matGetVariable(pmat, "sta_chan");
-	 if (pa == NULL) {
-	 printf("error: reading from the input matlab file.\n");
-	 exit(0);
-	 }
-	 matClose(pmat);
-
-
-	 double *matdata = mxGetPr(pa);
-	 //std::copy(matdata, matdata + nchan, Ichannel2D);
-	 //memcpy(Ichannel2D, matdata, nchan);
-
-	 for (i=0; i<nchan-1;i++)  // channel weights
-	 *(Ichannel2D+i) = *(matdata+i);
-
-	 //IIt = It;
-	 */
 
 	I_prefilt = mxMalloc(TTchan * sizeof(double));
 
@@ -469,7 +524,6 @@ int main(int argc, char *argv[]) {
 
 	// free memory
 	mxFree;
-
 }
 
 #define RANDOM_MAX					2.1475e+09

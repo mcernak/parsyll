@@ -1,10 +1,12 @@
-# sylb: Incremental syllable boundary detection
+# nsylb: Neuromorphic Syllable Boundary detector
 
 The build system is based on CMake. To build, you
 should only need to do the following:
 ```sh
  (edit CMakeLists.txt to suit your environment)
  cmake .
+ (or for a debug build call:)
+ cmake -D CMAKE_CXX_FLAGS_DEBUG:STRING="-g -Wall -Werror" -D CMAKE_BUILD_TYPE=debug .
  make
 ```
 
@@ -21,11 +23,20 @@ The technical aspects of the sylb detector are written up in this paper:
 ```
 and here is a [pdf](http://publications.idiap.ch/downloads/papers/2015/Hyafil_INTERSPEECH_2015.pdf).
 
-To run the decoding, call:
+To run the decoding from a htk input PLP feature file, call:
 ```
-  bin/sdec example/example_PLP.mat cfg/PLP_filter.mat
+  HCopy -C cfg/PLP_0.cfg example/timit_train_dr3_madc0_sa1.wav example/example_PLP.htk
+  bin/nsylb -i example/example_PLP.htk	
 ```
+
+Alternatively, to run the decoding from some matlab input PLP feature file, call:
+```
+  bin/nsylb -m -n 10 -i example/example_PLP.mat
+```
+
+Please note that the nsylb is a stochastic decoder, i.e., it always gives slightly different results for the same input file. In addition, the current version does not include a voice activity detection, i.e., it outputs putative syllable boundaries also for speech silence.
+ 
 
 [Milos Cernak](http://www.idiap.ch/~mcernak)
 
-June 2015
+July 2015
