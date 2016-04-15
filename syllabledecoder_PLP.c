@@ -189,16 +189,6 @@ int main(int argc, char *argv[]) {
 	knoizS = 2.0284; // noise parameter for I neurons
 	knoizD = 0.2817; // noise parameter for E neurons
 
-	//simulation parameters
-	dt = .1;
-	Tstart = 500;
-	double Tend = 200;
-
-	// post-processing parameters (detect synchrony)
-	nthr = nS / 5; // minimum number of spikes in a synchronous burst
-	rectwidth = 15; // width of the time window to detect synchronous burst
-	TTrect = ceil((rectwidth / dt - 1) / 2);
-
 	/// OPEN SPEECH FILE
 	//mfccfile = argv[1];
 
@@ -229,7 +219,7 @@ int main(int argc, char *argv[]) {
 	} else {
 		float *plpdata;
 		// reading HTK header
-		printf("nsylb: reading HTK header\n");
+		// printf("nsylb: reading HTK header\n");
 	    int nSamples;   // 4 B
 	    int sampPeriod; // 4 B
 	    short sampSize; // 2 B
@@ -268,6 +258,16 @@ int main(int argc, char *argv[]) {
 	    fclose(fp);
 		//exit(0);
 	}
+
+	//simulation parameters
+	dt = dt_input/100;
+	Tstart = 500;
+	double Tend = 200;
+
+	// post-processing parameters (detect synchrony)
+	nthr = nS / 5; // minimum number of spikes in a synchronous burst
+	rectwidth = 15; // width of the time window to detect synchronous burst
+	TTrect = ceil((rectwidth / dt - 1) / 2);
 	T = Tstart + Tend + dt_input * TTchan; // total trial time (ms)
 	TT = round(T / dt); // number of time steps
 
@@ -511,8 +511,16 @@ int main(int argc, char *argv[]) {
 	}
 
 	// output boundaries on command line
-	for (t = 0; t < nsynS; t++)
-		printf("putative boundary at %f ms\n", dt * T_synS[t] - Tstart);
+	double sb=0,b=0;
+	/* if (nsynS) */
+	/*   sb = (dt * T_synS[0] - Tstart)/10; */
+	for (t = 0; t < nsynS; t++) {
+	  b = (dt * T_synS[t] - Tstart)/dt_input;
+	  printf("%.0f %.0f\n", sb, b);
+	  sb = b + 1;
+	  //fprintf(stderr,"putative boundary at %f ms\n", dt * T_synS[t] - Tstart);
+        }
+		/* printf("putative boundary at %f ms\n", dt * T_synS[t] - Tstart); */
 
 	/*
 	 // convert to actual time vector of appropriate size

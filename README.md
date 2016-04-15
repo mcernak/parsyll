@@ -1,4 +1,4 @@
-# nsylb: Neuromorphic Syllable Boundary detector
+# parsyll: Speech Syllable Parser
 
 The build system is based on CMake. To build, you
 should only need to do the following:
@@ -29,9 +29,14 @@ To run the decoding from a htk input PLP feature file, call:
   bin/nsylb -i example/example_PLP.htk	
 ```
 
-Alternatively, to run the decoding from some matlab input PLP feature file, call:
+To run the decoding from some matlab input PLP feature file, call:
 ```
   bin/nsylb -m -n 10 -i example/example_PLP.mat
+```
+
+Alternatively, run the shell script (the scrit includes DLOP pitch parametrisation):
+```
+  run.sh example/timit_train_dr3_madc0_sa1.wav
 ```
 
 Please note that the nsylb is a stochastic decoder, i.e., it always gives slightly different results for the same input file. In addition, the current version does not include a voice activity detection, i.e., it outputs putative syllable boundaries also for speech silence.
